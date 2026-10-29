@@ -20,7 +20,7 @@ benchmarker/start-session:
 		--parameters '{"command":["sudo -i -u isucon"]}'
 
 # サーバー上で実行する: make deploy [BRANCH=feature/xxx]
-BRANCH ?= main
+BRANCH ?= master
 REPO_DIR ?= /home/isucon/webapp
 
 deploy:
