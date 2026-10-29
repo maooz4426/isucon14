@@ -3,7 +3,7 @@
 # 使い方: make server/start-session INSTANCE_ID=i-xxxxxxxx [AWS_PROFILE=xxx]
 INSTANCE_ID ?= i-0b217db44e076dd04
 # 使い方: make benchmarker/start-session BENCH_INSTANCE_ID=i-xxxxxxxx [AWS_PROFILE=xxx]
-BENCH_INSTANCE_ID ?= i-010ad0d8f1a47f2cf
+BENCH_INSTANCE_ID ?= i-0afbb9a22c4bc2db4
 
 server/start-session:
 	@test -n "$(INSTANCE_ID)" || (echo "INSTANCE_ID を指定してください" && exit 1)
