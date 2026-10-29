@@ -1,4 +1,4 @@
-.PHONY: server/start-session benchmarker/start-session server/deploy
+.PHONY: server/start-session benchmarker/start-session server/deploy reset-logs
 
 # 使い方: make server/start-session INSTANCE_ID=i-xxxxxxxx [AWS_PROFILE=xxx]
 INSTANCE_ID ?= i-0b217db44e076dd04
@@ -30,3 +30,12 @@ server/deploy:
 		--target $(INSTANCE_ID) \
 		--document-name AWS-StartInteractiveCommand \
 		--parameters '{"command":["sudo -i -u isucon bash -c \"$(DEPLOY_CMD)\""]}'
+
+# サーバー上で実行する: make reset-logs [MYSQL_SLOW_LOG=/path] [NGINX_ACCESS_LOG=/path] [NGINX_ERROR_LOG=/path]
+# ファイルを削除せず truncate する。MySQL と nginx は開いたファイルを保持し続けるため。
+MYSQL_SLOW_LOG ?= /var/log/mysql/mysql-slow.log
+NGINX_ACCESS_LOG ?= /var/log/nginx/access.log
+NGINX_ERROR_LOG ?= /var/log/nginx/error.log
+
+reset-logs:
+	sudo truncate -s 0 $(MYSQL_SLOW_LOG) $(NGINX_ACCESS_LOG) $(NGINX_ERROR_LOG)
