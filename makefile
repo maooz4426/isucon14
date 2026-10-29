@@ -1,4 +1,4 @@
-.PHONY: server/start-session benchmarker/start-session server/deploy reset-logs
+.PHONY: server/start-session benchmarker/start-session deploy reset-logs
 
 # 使い方: make server/start-session INSTANCE_ID=i-xxxxxxxx [AWS_PROFILE=xxx]
 INSTANCE_ID ?= i-0b217db44e076dd04
@@ -19,17 +19,14 @@ benchmarker/start-session:
 		--document-name AWS-StartInteractiveCommand \
 		--parameters '{"command":["sudo -i -u isucon"]}'
 
-# 使い方: make server/deploy [BRANCH=feature/xxx]
+# サーバー上で実行する: make deploy [BRANCH=feature/xxx]
 BRANCH ?= main
 REPO_DIR ?= /home/isucon/webapp
-DEPLOY_CMD = cd $(REPO_DIR) && git fetch origin && git checkout $(BRANCH) && git pull --ff-only origin $(BRANCH) && cd rust && /home/isucon/.x cargo build --release --locked && sudo systemctl restart isuride-rust
 
-server/deploy:
-	@test -n "$(INSTANCE_ID)" || (echo "INSTANCE_ID を指定してください" && exit 1)
-	aws ssm start-session \
-		--target $(INSTANCE_ID) \
-		--document-name AWS-StartInteractiveCommand \
-		--parameters '{"command":["sudo -i -u isucon bash -c \"$(DEPLOY_CMD)\""]}'
+deploy:
+	cd $(REPO_DIR) && git fetch origin && git checkout $(BRANCH) && git pull --ff-only origin $(BRANCH)
+	cd $(REPO_DIR)/rust && /home/isucon/.x cargo build --release --locked
+	sudo systemctl restart isuride-rust
 
 # サーバー上で実行する: make reset-logs [MYSQL_SLOW_LOG=/path] [NGINX_ACCESS_LOG=/path] [NGINX_ERROR_LOG=/path]
 # ファイルを削除せず truncate する。MySQL と nginx は開いたファイルを保持し続けるため。
