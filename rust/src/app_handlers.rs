@@ -192,23 +192,23 @@ async fn app_get_rides(
     State(AppState { pool, .. }): State<AppState>,
     axum::Extension(user): axum::Extension<User>,
 ) -> Result<axum::Json<GetAppRidesResponse>, Error> {
-    let mut tx = pool.begin().await?;
+    let mut conn = pool.acquire().await?;
 
     let rides: Vec<Ride> =
         sqlx::query_as("SELECT * FROM rides WHERE user_id = ? ORDER BY created_at DESC")
             .bind(&user.id)
-            .fetch_all(&mut *tx)
+            .fetch_all(&mut *conn)
             .await?;
 
     let mut items = Vec::with_capacity(rides.len());
     for ride in rides {
-        let status = crate::get_latest_ride_status(&mut *tx, &ride.id).await?;
+        let status = crate::get_latest_ride_status(&mut *conn, &ride.id).await?;
         if status != "COMPLETED" {
             continue;
         }
 
         let fare = calculate_discounted_fare(
-            &mut tx,
+            &mut conn,
             &user.id,
             Some(&ride),
             ride.pickup_latitude,
@@ -220,12 +220,12 @@ async fn app_get_rides(
 
         let chair: Chair = sqlx::query_as("SELECT * FROM chairs WHERE id = ?")
             .bind(&ride.chair_id)
-            .fetch_one(&mut *tx)
+            .fetch_one(&mut *conn)
             .await?;
 
         let owner: Owner = sqlx::query_as("SELECT * FROM owners WHERE id = ?")
             .bind(chair.owner_id)
-            .fetch_one(&mut *tx)
+            .fetch_one(&mut *conn)
             .await?;
 
         items.push(GetAppRidesResponseItem {
@@ -250,8 +250,6 @@ async fn app_get_rides(
             completed_at: ride.updated_at.timestamp_millis(),
         });
     }
-
-    tx.commit().await?;
 
     Ok(axum::Json(GetAppRidesResponse { rides: items }))
 }
@@ -400,10 +398,10 @@ async fn app_post_rides_estimated_fare(
     axum::Extension(user): axum::Extension<User>,
     axum::Json(req): axum::Json<AppPostRidesEstimatedFareRequest>,
 ) -> Result<axum::Json<AppPostRidesEstimatedFareResponse>, Error> {
-    let mut tx = pool.begin().await?;
+    let mut conn = pool.acquire().await?;
 
     let discounted = calculate_discounted_fare(
-        &mut tx,
+        &mut conn,
         &user.id,
         None,
         req.pickup_coordinate.latitude,
@@ -412,8 +410,6 @@ async fn app_post_rides_estimated_fare(
         req.destination_coordinate.longitude,
     )
     .await?;
-
-    tx.commit().await?;
 
     Ok(axum::Json(AppPostRidesEstimatedFareResponse {
         fare: discounted,
@@ -748,10 +744,10 @@ async fn app_get_nearby_chairs(
         longitude: query.longitude,
     };
 
-    let mut tx = pool.begin().await?;
+    let mut conn = pool.acquire().await?;
 
     let chairs: Vec<Chair> = sqlx::query_as("SELECT * FROM chairs")
-        .fetch_all(&mut *tx)
+        .fetch_all(&mut *conn)
         .await?;
 
     let mut nearby_chairs = Vec::new();
@@ -763,13 +759,13 @@ async fn app_get_nearby_chairs(
         let rides: Vec<Ride> =
             sqlx::query_as("SELECT * FROM rides WHERE chair_id = ? ORDER BY created_at DESC")
                 .bind(&chair.id)
-                .fetch_all(&mut *tx)
+                .fetch_all(&mut *conn)
                 .await?;
 
         let mut skip = false;
         for ride in rides {
             // 過去にライドが存在し、かつ、それが完了していない場合はスキップ
-            let status = crate::get_latest_ride_status(&mut *tx, &ride.id).await?;
+            let status = crate::get_latest_ride_status(&mut *conn, &ride.id).await?;
             if status != "COMPLETED" {
                 skip = true;
                 break;
@@ -784,7 +780,7 @@ async fn app_get_nearby_chairs(
             "SELECT * FROM chair_locations WHERE chair_id = ? ORDER BY created_at DESC LIMIT 1",
         )
         .bind(&chair.id)
-        .fetch_optional(&mut *tx)
+        .fetch_optional(&mut *conn)
         .await?
         else {
             continue;
@@ -810,7 +806,7 @@ async fn app_get_nearby_chairs(
 
     let retrieved_at: chrono::DateTime<chrono::Utc> =
         sqlx::query_scalar("SELECT CURRENT_TIMESTAMP(6)")
-            .fetch_one(&mut *tx)
+            .fetch_one(&mut *conn)
             .await?;
 
     Ok(axum::Json(AppGetNearbyChairsResponse {
