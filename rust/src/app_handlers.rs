@@ -269,7 +269,10 @@ struct AppPostRidesResponse {
 }
 
 async fn app_post_rides(
-    State(AppState { pool, .. }): State<AppState>,
+    State(AppState {
+        pool,
+        matching_notify,
+    }): State<AppState>,
     axum::Extension(user): axum::Extension<User>,
     axum::Json(req): axum::Json<AppPostRidesRequest>,
 ) -> Result<(StatusCode, axum::Json<AppPostRidesResponse>), Error> {
@@ -377,6 +380,8 @@ async fn app_post_rides(
 
     tx.commit().await?;
 
+    matching_notify.notify_one();
+
     Ok((
         StatusCode::ACCEPTED,
         axum::Json(AppPostRidesResponse { ride_id, fare }),
@@ -438,7 +443,10 @@ struct AppPostRideEvaluationResponse {
 }
 
 async fn app_post_ride_evaluation(
-    State(AppState { pool, .. }): State<AppState>,
+    State(AppState {
+        pool,
+        matching_notify,
+    }): State<AppState>,
     Path((ride_id,)): Path<(String,)>,
     axum::Json(req): axum::Json<AppPostRideEvaluationRequest>,
 ) -> Result<axum::Json<AppPostRideEvaluationResponse>, Error> {
@@ -533,6 +541,8 @@ async fn app_post_ride_evaluation(
     .await?;
 
     tx.commit().await?;
+
+    matching_notify.notify_one();
 
     Ok(axum::Json(AppPostRideEvaluationResponse {
         fare,

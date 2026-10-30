@@ -96,7 +96,10 @@ struct PostChairActivityRequest {
 }
 
 async fn chair_post_activity(
-    State(AppState { pool, .. }): State<AppState>,
+    State(AppState {
+        pool,
+        matching_notify,
+    }): State<AppState>,
     axum::Extension(chair): axum::Extension<Chair>,
     axum::Json(req): axum::Json<PostChairActivityRequest>,
 ) -> Result<StatusCode, Error> {
@@ -105,6 +108,10 @@ async fn chair_post_activity(
         .bind(chair.id)
         .execute(&pool)
         .await?;
+
+    if req.is_active {
+        matching_notify.notify_one();
+    }
 
     Ok(StatusCode::NO_CONTENT)
 }
