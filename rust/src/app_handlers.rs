@@ -663,52 +663,20 @@ async fn get_chair_stats(
     tx: &mut sqlx::MySqlConnection,
     chair_id: &str,
 ) -> Result<AppGetNotificationResponseChairStats, Error> {
-    let rides: Vec<Ride> =
-        sqlx::query_as("SELECT * FROM rides WHERE chair_id = ? ORDER BY updated_at DESC")
-            .bind(chair_id)
-            .fetch_all(&mut *tx)
-            .await?;
-
-    let mut total_ride_count = 0;
-    let mut total_evaluation = 0.0;
-    for ride in rides {
-        let ride_statuses: Vec<RideStatus> =
-            sqlx::query_as("SELECT * FROM ride_statuses WHERE ride_id = ? ORDER BY created_at")
-                .bind(&ride.id)
-                .fetch_all(&mut *tx)
-                .await?;
-
-        if !ride_statuses
-            .iter()
-            .any(|status| status.status == "ARRIVED")
-        {
-            continue;
-        }
-        if !ride_statuses
-            .iter()
-            .any(|status| (status.status == "CARRYING"))
-        {
-            continue;
-        }
-        let is_completed = ride_statuses
-            .iter()
-            .any(|status| status.status == "COMPLETED");
-        if !is_completed {
-            continue;
-        }
-
-        total_ride_count += 1;
-        total_evaluation += ride.evaluation.unwrap() as f64;
-    }
-
-    let total_evaluation_avg = if total_ride_count > 0 {
-        total_evaluation / total_ride_count as f64
-    } else {
-        0.0
-    };
+    let (total_ride_count, total_evaluation_avg): (i64, f64) = sqlx::query_as(
+        "SELECT COUNT(*), CAST(COALESCE(AVG(r.evaluation), 0) AS DOUBLE) \
+         FROM rides r \
+         WHERE r.chair_id = ? \
+           AND EXISTS (SELECT 1 FROM ride_statuses s WHERE s.ride_id = r.id AND s.status = 'ARRIVED') \
+           AND EXISTS (SELECT 1 FROM ride_statuses s WHERE s.ride_id = r.id AND s.status = 'CARRYING') \
+           AND EXISTS (SELECT 1 FROM ride_statuses s WHERE s.ride_id = r.id AND s.status = 'COMPLETED')",
+    )
+    .bind(chair_id)
+    .fetch_one(&mut *tx)
+    .await?;
 
     Ok(AppGetNotificationResponseChairStats {
-        total_rides_count: total_ride_count,
+        total_rides_count: total_ride_count as i32,
         total_evaluation_avg,
     })
 }
