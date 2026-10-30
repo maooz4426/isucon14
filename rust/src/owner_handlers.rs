@@ -116,11 +116,11 @@ async fn owner_get_sales(
         )
     };
 
-    let mut tx = pool.begin().await?;
+    let mut conn = pool.acquire().await?;
 
     let chairs: Vec<Chair> = sqlx::query_as("SELECT * FROM chairs WHERE owner_id = ?")
         .bind(&owner.id)
-        .fetch_all(&mut *tx)
+        .fetch_all(&mut *conn)
         .await?;
 
     let mut res = OwnerGetSalesResponse {
@@ -136,7 +136,7 @@ async fn owner_get_sales(
             .bind(&chair.id)
             .bind(since)
             .bind(until)
-            .fetch_all(&mut *tx)
+            .fetch_all(&mut *conn)
             .await?;
 
         let sales = sum_sales(&reqs);
