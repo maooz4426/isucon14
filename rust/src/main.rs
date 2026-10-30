@@ -30,7 +30,8 @@ async fn main() -> anyhow::Result<()> {
                 .port(port)
                 .username(&user)
                 .password(&password)
-                .database(&dbname),
+                .database(&dbname)
+                .statement_cache_capacity(0),
         )
         .await?;
 
