@@ -35,7 +35,13 @@ async fn main() -> anyhow::Result<()> {
         )
         .await?;
 
-    let app_state = AppState { pool };
+    let matching_notify = std::sync::Arc::new(tokio::sync::Notify::new());
+    isuride::internal_handlers::spawn_matcher(pool.clone(), matching_notify.clone());
+
+    let app_state = AppState {
+        pool,
+        matching_notify,
+    };
 
     let app = axum::Router::new()
         .route("/api/initialize", axum::routing::post(post_initialize))
